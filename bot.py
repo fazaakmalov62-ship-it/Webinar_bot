@@ -4,7 +4,7 @@ from openpyxl import Workbook, load_workbook
 from datetime import datetime
 import os
 
-# === Настройки ===
+# ================= Настройки =================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN не задан. Установите переменную окружения BOT_TOKEN в Render или локально.")
@@ -14,14 +14,16 @@ FILE_NAME = "webinar_registrations.xlsx"
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# === Создаём файл Excel, если его нет ===
+# ================= Excel ====================
 if not os.path.exists(FILE_NAME):
     wb = Workbook()
     ws = wb.active
     ws.append(["Никнейм", "Дата регистрации", "ID TG", "Имя", "Статус"])
     wb.save(FILE_NAME)
+    print(f"Создан файл {FILE_NAME}")
 
-# === Хэндлеры ===
+# ================= Хэндлеры =================
+
 @bot.message_handler(commands=['start'])
 def start(message):
     try:
@@ -161,7 +163,7 @@ def send_broadcast(message):
     except Exception as e:
         print("Ошибка в send_broadcast:", e)
 
-# === Запуск бота через polling ===
+# ================= Запуск бота =================
 if __name__ == "__main__":
-    print("Запуск бота через polling")
+    print("Запуск бота через polling (Background Worker на Render)")
     bot.infinity_polling()
