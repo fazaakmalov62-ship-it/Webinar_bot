@@ -23,7 +23,7 @@ if not os.path.exists(FILE_NAME):
     ws.append(["Никнейм", "Дата регистрации", "ID TG", "Имя", "Статус"])
     wb.save(FILE_NAME)
 
-# === Хэндлеры бота (оставил твою логику без изменений) ===
+# === Хэндлеры бота ===
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.from_user.id
@@ -143,14 +143,13 @@ def send_broadcast(message):
     bot.send_message(message.chat.id, f"Рассылка отправлена {sent} пользователям.")
 
 # === Flask + Webhook ===
-app = Flask(__name__)   # <-- ИМЕННО ТАК
+app = Flask(__name__)
 
-# корневой маршрут — удобно для проверки в браузере
 @app.route("/", methods=["GET"])
 def index():
     return "Bot server is running", 200
 
-# Попробуем автоматически установить вебхук, если задано RENDER_APP_NAME
+# Автоустановка вебхука
 if RENDER_APP_NAME:
     WEBHOOK_URL = f"https://{RENDER_APP_NAME}.onrender.com/{BOT_TOKEN}"
     try:
@@ -162,24 +161,22 @@ if RENDER_APP_NAME:
 else:
     print("RENDER_APP_NAME не задан — вебхук не устанавливается автоматически.")
 
-# endpoint для telegram (должен совпадать с тем, что в setWebhook)
+# Webhook endpoint с логированием апдейтов
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
     json_str = request.get_data().decode("utf-8")
+    print("Incoming update:", json_str)  # <-- дебаг
     if not json_str:
         return "no data", 400
     update = telebot.types.Update.de_json(json_str)
     bot.process_new_updates([update])
     return "ok", 200
 
-# запуск — локально можно тестировать через LOCAL_TEST=1
+# Запуск
 if __name__ == "__main__":
     if os.environ.get("LOCAL_TEST"):
         print("Запуск в режиме polling (LOCAL_TEST).")
         bot.infinity_polling()
     else:
-        port = int(os.environ.get("PORT", 5000))
+        port = int(os.environ["PORT"])  # <-- берём порт Render напрямую
         app.run(host="0.0.0.0", port=port)
-
-
-
