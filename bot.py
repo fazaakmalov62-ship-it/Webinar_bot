@@ -1,12 +1,13 @@
-﻿import telebot
+import telebot
 from telebot import types
 from openpyxl import Workbook, load_workbook
 from datetime import datetime
 import os
+from flask import Flask, request
 
 # === Настройки ===
-BOT_TOKEN = "7833833174:AAHOVAge-5gsRPWbYj85Wd4WJRevYMqU5wg"
-ADMIN_ID = 1309971729  # замените на ваш Telegram ID
+BOT_TOKEN = os.environ.get("BOT_TOKEN")  # токен берем из переменных окружения
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "1309971729"))  # ID админа тоже можно вынести
 FILE_NAME = "webinar_registrations.xlsx"
 
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -25,7 +26,6 @@ def start(message):
     wb = load_workbook(FILE_NAME)
     ws = wb.active
 
-    # Проверяем, есть ли пользователь
     found = False
     for i in range(2, ws.max_row + 1):
         if ws.cell(row=i, column=3).value == user_id:
@@ -58,11 +58,9 @@ def register_step1(message):
     wb = load_workbook(FILE_NAME)
     ws = wb.active
 
-    # Проверяем, есть ли пользователь
     found = False
     for i in range(2, ws.max_row + 1):
         if ws.cell(row=i, column=3).value == user_id:
-            # Обновляем никнейм и дату регистрации
             ws.cell(row=i, column=1, value=username)
             ws.cell(row=i, column=2, value=reg_time)
             found = True
@@ -87,7 +85,7 @@ def register_step2(message):
     for i in range(2, ws.max_row + 1):
         if ws.cell(row=i, column=3).value == user_id:
             ws.cell(row=i, column=4, value=name)
-            ws.cell(row=i, column=5, value="")  # статус пустой
+            ws.cell(row=i, column=5, value="")  
             break
     wb.save(FILE_NAME)
 
@@ -107,7 +105,7 @@ def cancel_registration(message):
     ws = wb.active
     for i in range(2, ws.max_row + 1):
         if ws.cell(row=i, column=3).value == user_id:
-            ws.cell(i, 5, "Отказался")
+            ws.cell(row=i, column=5, value="Отказался")
             break
     wb.save(FILE_NAME)
     bot.send_message(message.chat.id, "❌ Вы отказались от вебинара. Данные обновлены.")
@@ -115,9 +113,7 @@ def cancel_registration(message):
 # === Обновление данных ===
 @bot.message_handler(func=lambda msg: msg.text == "Обновить данные")
 def update_data(message):
-    # Просто начинаем регистрацию заново для обновления данных
     register_step1(message)
-
 # === Команда админа для рассылки ===
 @bot.message_handler(commands=['broadcast'])
 def broadcast(message):
@@ -133,8 +129,8 @@ def send_broadcast(message):
     ws = wb.active
     sent = 0
     for i in range(2, ws.max_row + 1):
-        user_id = ws.cell(i, column=3).value
-        status = ws.cell(i, column=5).value
+        user_id = ws.cell(row=i, column=3).value
+        status = ws.cell(row=i, column=5).value
         if status != "Отказался":
             try:
                 bot.send_message(user_id, text)
@@ -143,8 +139,23 @@ def send_broadcast(message):
                 continue
     bot.send_message(message.chat.id, f"Рассылка отправлена {sent} пользователям.")
 
-# === Запуск бота ===
-print("✅ Бот запущен. Ждём сообщений...")
-bot.infinity_polling()
+# === Flask + Webhook ===
+app = Flask(name)
 
+WEBHOOK_URL = f"https://{os.environ.get('RENDER_APP_NAME')}.onrender.com/{BOT_TOKEN}"
+
+try:
+    bot.remove_webhook()
+    bot.set_webhook(url=WEBHOOK_URL)
+except Exception as e:
+    print("Ошибка при установке вебхука:", e)
+
+@app.route(f"/{BOT_TOKEN}", methods=["POST"])
+def webhook():
+    update = request.get_data().decode("utf-8")
+    bot.process_new_updates([telebot.types.Update.de_json(update)])
+    return "ok", 200
+
+if name == "main":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
