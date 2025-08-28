@@ -156,6 +156,7 @@ def webhook():
     bot.process_new_updates([telebot.types.Update.de_json(update)])
     return "ok", 200
 
-if name == "main":
+if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
 
