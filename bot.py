@@ -3,7 +3,6 @@ from telebot import types
 from openpyxl import Workbook, load_workbook
 from datetime import datetime
 import os
-from flask import Flask, request
 
 # === Настройки ===
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -12,7 +11,6 @@ if not BOT_TOKEN:
 
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "1309971729"))
 FILE_NAME = "webinar_registrations.xlsx"
-RENDER_APP_NAME = os.environ.get("RENDER_APP_NAME")  # например webinar-bot-1juu
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -23,32 +21,11 @@ if not os.path.exists(FILE_NAME):
     ws.append(["Никнейм", "Дата регистрации", "ID TG", "Имя", "Статус"])
     wb.save(FILE_NAME)
 
-# === Flask ===
-app = Flask(__name__)
-
-@app.route("/", methods=["GET"])
-def index():
-    return "Bot server is running", 200
-
-# === Webhook endpoint с логированием ===
-@app.route(f"/{BOT_TOKEN}", methods=["POST"])
-def webhook():
-    json_str = request.get_data().decode("utf-8")
-    print("Incoming update:", json_str)
-    if not json_str:
-        return "no data", 400
-    try:
-        update = telebot.types.Update.de_json(json_str)
-        bot.process_new_updates([update])
-    except Exception as e:
-        print("Ошибка обработки апдейта:", e)
-    return "ok", 200
-
 # === Хэндлеры ===
 @bot.message_handler(commands=['start'])
 def start(message):
     try:
-        print(f"Start command received from {message.from_user.id}")
+        print(f"/start received from {message.from_user.id}")
         user_id = message.from_user.id
         wb = load_workbook(FILE_NAME)
         ws = wb.active
@@ -77,7 +54,6 @@ def start(message):
     except Exception as e:
         print("Ошибка в /start:", e)
 
-# === Остальные хэндлеры (обёрнуты в try/except аналогично) ===
 @bot.message_handler(func=lambda msg: msg.text == "Записаться на вебинар")
 def register_step1(message):
     try:
@@ -120,7 +96,7 @@ def register_step2(message):
         for i in range(2, ws.max_row + 1):
             if ws.cell(row=i, column=3).value == user_id:
                 ws.cell(row=i, column=4, value=name)
-                ws.cell(row=i, column=5, value="")  
+                ws.cell(row=i, column=5, value="" )
                 break
         wb.save(FILE_NAME)
 
@@ -185,23 +161,7 @@ def send_broadcast(message):
     except Exception as e:
         print("Ошибка в send_broadcast:", e)
 
-# === Установка вебхука ===
-if RENDER_APP_NAME:
-    WEBHOOK_URL = f"https://{RENDER_APP_NAME}.onrender.com/{BOT_TOKEN}"
-    try:
-        bot.remove_webhook()
-        ok = bot.set_webhook(url=WEBHOOK_URL)
-        print("set_webhook result:", ok, "WEBHOOK_URL:", WEBHOOK_URL)
-    except Exception as e:
-        print("Ошибка при установке вебхука:", e)
-else:
-    print("RENDER_APP_NAME не задан — вебхук не устанавливается автоматически.")
-
-# === Запуск ===
+# === Запуск бота через polling ===
 if __name__ == "__main__":
-    if os.environ.get("LOCAL_TEST"):
-        print("Запуск в режиме polling (LOCAL_TEST).")
-        bot.infinity_polling()
-    else:
-        port = int(os.environ["PORT"])
-        app.run(host="0.0.0.0", port=port, threaded=True)
+    print("Запуск бота через polling")
+    bot.infinity_polling()
