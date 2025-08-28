@@ -140,7 +140,7 @@ def send_broadcast(message):
     bot.send_message(message.chat.id, f"Рассылка отправлена {sent} пользователям.")
 
 # === Flask + Webhook ===
-app = Flask(name)
+app = Flask(__name__)
 
 WEBHOOK_URL = f"https://{os.environ.get('RENDER_APP_NAME')}.onrender.com/{BOT_TOKEN}"
 
@@ -158,5 +158,6 @@ def webhook():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
 
 
